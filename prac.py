@@ -1,29 +1,22 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
+import re
 
 app = FastAPI()
 
-class Question(BaseModel):
-    question: str
+class Query(BaseModel):
+    query: str
+    assets: list[str] = []
 
-@app.post("/sum")
-async def sum_endpoint(q: Question):
-    question = q.question
-    # Assume format: "what is a+b?"
-    if question.startswith('what is ') and '+' in question:
-        rest = question[8:]  # after "what is "
-        plus_pos = rest.find('+')
-        if plus_pos != -1:
-            a_str = rest[:plus_pos]
-            b_str = rest[plus_pos + 1:]
-            # remove trailing ?
-            if b_str.endswith('?'):
-                b_str = b_str[:-1]
-            try:
-                a = int(a_str)
-                b = int(b_str)
-                sum_val = a + b
-                return {"answer": f"the sum is {sum_val}"}
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid numbers")
-    raise HTTPException(status_code=400, detail="Invalid format")
+@app.post("/")
+def solve(q: Query):
+    text = q.query.lower()
+
+    # extract numbers
+    numbers = list(map(int, re.findall(r'\d+', text)))
+
+    if len(numbers) >= 2:
+        result = numbers[0] + numbers[1]
+        return {"output": f"The sum is {result}."}
+
+    return {"output": "Unable to process"}
