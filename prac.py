@@ -1,7 +1,11 @@
+import google.generativeai as genai
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
-import re
+
+# 1. Initialize the AI (Get a free key from Google AI Studio)
+genai.configure(api_key="YOUR_GEMINI_API_KEY_HERE")
+model = genai.GenerativeModel('gemini-1.5-flash') # Flash is perfect for low latency
 
 app = FastAPI()
 
@@ -11,34 +15,26 @@ class QueryRequest(BaseModel):
 
 @app.post("/v1/answer")
 async def solve(data: QueryRequest):
-    text = data.query.lower()
+    print(f"--- EVALUATOR SENT: {data.query} ---")
     
-    # NEW REGEX: Catches decimals (e.g., 10.5) and negative numbers
-    numbers = [float(n) for n in re.findall(r'-?\d+(?:\.\d+)?', text)]
-
-    if len(numbers) >= 2:
-        a, b = numbers[0], numbers[1]
-        
-        # Determine operation
-        if any(w in text for w in ["*", "times", "multiply"]):
-            ans = a * b
-            op_name = "product"
-        elif any(w in text for w in ["-", "minus", "subtract", "difference"]):
-            ans = a - b
-            op_name = "difference"
-        elif any(w in text for w in ["/", "divide", "quotient"]):
-            ans = a / b
-            op_name = "quotient"
-        else:
-            ans = sum(numbers)
-            op_name = "sum"
-
-        # Format cleanly (remove .0 if it's a whole number)
-        if ans.is_integer():
-            ans = int(ans)
-            
-        return {"output": f"The {op_name} is {ans}."}
+    # 2. Strict Prompt Engineering
+    # We force the LLM to format math exactly how the evaluator wants it,
+    # but give it the freedom to answer any other random text question.
+    system_prompt = (
+        "You are an automated API responding to test cases. "
+        "Rule 1: If the user asks a simple addition math question like 'What is 10 + 15?', "
+        "you MUST reply exactly in this format: 'The sum is [X].' (include the period). "
+        "Rule 2: For any other question, answer concisely in one sentence."
+    )
     
-    # Fallback for general questions (like "What is the capital of France?")
-    # In Level 2, you'll replace this with an LLM call!
-    return {"output": "I am an AI agent. Please provide a math query."}
+    # 3. Generate the answer
+    try:
+        response = model.generate_content(f"{system_prompt}\nQuery: {data.query}")
+        final_answer = response.text.strip()
+    except Exception as e:
+        final_answer = "I encountered an error processing the query."
+        print(f"Error: {e}")
+
+    print(f"--- AI REPLIED: {final_answer} ---")
+    
+    return {"output": final_answer}
