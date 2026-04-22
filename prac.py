@@ -1,4 +1,12 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
 import re
+
+app = FastAPI()
+
+class Query(BaseModel):
+    query: str
+    assets: list[str] = []
 
 @app.post("/")
 def solve(q: Query):
@@ -21,7 +29,6 @@ def solve(q: Query):
         elif any(word in text for word in ["/", "divide", "divided"]):
             if b != 0:
                 result = a / b
-                # remove .0 if integer
                 if result.is_integer():
                     result = int(result)
                 return {"output": f"The quotient is {result}."}
