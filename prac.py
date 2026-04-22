@@ -5,7 +5,6 @@ import re
 
 app = FastAPI()
 
-# This makes sure FastAPI expects the exact JSON format and shows it in /docs
 class QueryRequest(BaseModel):
     query: str
     assets: List[str] = []
@@ -14,29 +13,32 @@ class QueryRequest(BaseModel):
 async def solve(data: QueryRequest):
     text = data.query.lower()
     
-    # Print the incoming query to your terminal so you can see the hidden tests!
-    print(f"--- EVALUATOR SENT: {text} ---")
-
-    # Extract all numbers
-    numbers = list(map(int, re.findall(r'-?\d+', text)))
+    # NEW REGEX: Catches decimals (e.g., 10.5) and negative numbers
+    numbers = [float(n) for n in re.findall(r'-?\d+(?:\.\d+)?', text)]
 
     if len(numbers) >= 2:
         a, b = numbers[0], numbers[1]
         
-        # Check for different operations
-        if any(word in text for word in ["*", "times", "multiply"]):
-            result_str = f"The product is {a * b}."
-        elif any(word in text for word in ["-", "minus", "subtract", "difference"]):
-            result_str = f"The difference is {a - b}."
-        elif any(word in text for word in ["/", "divide", "quotient"]):
-            # Using integer division just in case
-            result_str = f"The quotient is {a // b}." 
+        # Determine operation
+        if any(w in text for w in ["*", "times", "multiply"]):
+            ans = a * b
+            op_name = "product"
+        elif any(w in text for w in ["-", "minus", "subtract", "difference"]):
+            ans = a - b
+            op_name = "difference"
+        elif any(w in text for w in ["/", "divide", "quotient"]):
+            ans = a / b
+            op_name = "quotient"
         else:
-            # Default to addition
-            result_str = f"The sum is {sum(numbers)}."
-    else:
-        result_str = "I couldn't find enough numbers."
+            ans = sum(numbers)
+            op_name = "sum"
 
-    print(f"--- WE REPLIED: {result_str} ---")
+        # Format cleanly (remove .0 if it's a whole number)
+        if ans.is_integer():
+            ans = int(ans)
+            
+        return {"output": f"The {op_name} is {ans}."}
     
-    return {"output": result_str}
+    # Fallback for general questions (like "What is the capital of France?")
+    # In Level 2, you'll replace this with an LLM call!
+    return {"output": "I am an AI agent. Please provide a math query."}
