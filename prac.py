@@ -5,22 +5,51 @@ import re
 
 app = FastAPI()
 
-# Using a Pydantic model ensures the API only accepts the correct JSON structure
 class QueryRequest(BaseModel):
     query: str
     assets: List[str] = []
 
+# --- SKILLS / TOOLS ---
+
+def handle_math(text: str) -> str:
+    """A deterministic tool for handling simple addition."""
+    numbers = list(map(int, re.findall(r'-?\d+', text)))
+    if len(numbers) >= 2:
+        return f"The sum is {sum(numbers)}."
+    return "Math error: Could not extract enough numbers."
+
+def handle_llm_query(text: str, assets: List[str]) -> str:
+    """Placeholder for your LLM or RAG pipeline."""
+    # Here is where you would hook up Gemini, OpenAI, or a local model
+    # response = llm.invoke(f"Answer {text} using {assets}")
+    return "This looks like a text query. My LLM is not connected yet!"
+
+# --- ROUTER ---
+
+def route_query(query: str) -> str:
+    """Determines the intent of the query and routes to the right tool."""
+    text_lower = query.lower()
+    
+    # Simple heuristic to detect math queries
+    math_keywords = ['+', '-', 'sum', 'add', 'minus', 'what is']
+    has_numbers = any(char.isdigit() for char in text_lower)
+    
+    if has_numbers and any(kw in text_lower for kw in math_keywords):
+        return "math"
+    return "general"
+
+# --- MAIN ENDPOINT ---
+
 @app.post("/")
 async def solve(data: QueryRequest):
-    # Extract numbers including negatives
-    numbers = list(map(int, re.findall(r'-?\d+', data.query)))
+    # 1. Decide what kind of query this is
+    intent = route_query(data.query)
 
-    if len(numbers) >= 2:
-        # Simple summation logic
-        result = sum(numbers)
-        # Note: The evaluation engine is sensitive to punctuation and casing.
-        # "The sum is 25." (with period) vs "The sum is 25" (without) 
-        # can be the difference between 100% and 80% Jaccard score.
-        return {"output": f"The sum is {result}."}
+    # 2. Route to the appropriate tool
+    if intent == "math":
+        final_answer = handle_math(data.query)
+    else:
+        final_answer = handle_llm_query(data.query, data.assets)
 
-    return {"output": "I couldn't find enough numbers to sum."}
+    # 3. Return the exact JSON structure expected by the evaluator
+    return {"output": final_answer}
