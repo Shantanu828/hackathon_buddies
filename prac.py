@@ -1,18 +1,25 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
 import re
 
 app = FastAPI()
 
-class Query(BaseModel):
-    query: str
-    assets: list[str] = []
-
 @app.post("/")
-def solve(q: Query):
-    numbers = list(map(int, re.findall(r'-?\d+', q.query)))
+async def solve(request: Request):
+    data = await request.json()
+
+    # handle different possible keys
+    text = (
+        data.get("query") or
+        data.get("question") or
+        data.get("input") or
+        ""
+    )
+
+    # extract numbers
+    numbers = list(map(int, re.findall(r'-?\d+', text)))
 
     if len(numbers) >= 2:
-        return {"output": str(numbers[0] + numbers[1])}
+        result = numbers[0] + numbers[1]
+        return {"output": str(result)}
 
     return {"output": "0"}
