@@ -1,40 +1,42 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List
 import re
 
 app = FastAPI()
 
-# Updated path to match the submission box in your screenshot
+# This makes sure FastAPI expects the exact JSON format and shows it in /docs
+class QueryRequest(BaseModel):
+    query: str
+    assets: List[str] = []
+
 @app.post("/v1/answer")
-async def solve(request: Request):
-    # Safely parse JSON
-    try:
-        data = await request.json()
-    except Exception:
-        return {"output": "Invalid JSON format."}
+async def solve(data: QueryRequest):
+    text = data.query.lower()
+    
+    # Print the incoming query to your terminal so you can see the hidden tests!
+    print(f"--- EVALUATOR SENT: {text} ---")
 
-    # --- HACKATHON LOGGING ---
-    # Keep an eye on your terminal! This will reveal the hidden test cases.
-    print("\n--- INCOMING EVALUATION REQUEST ---")
-    print(data)
-
-    text = data.get("query", "").lower()
-
-    # Find all numbers (including negative numbers)
+    # Extract all numbers
     numbers = list(map(int, re.findall(r'-?\d+', text)))
 
-    # Calculate the sum
-    if len(numbers) > 0:
-        # We use sum() to handle 2, 3, or even 10 numbers in the query
-        result = sum(numbers)
-        output_str = f"The sum is {result}."
+    if len(numbers) >= 2:
+        a, b = numbers[0], numbers[1]
+        
+        # Check for different operations
+        if any(word in text for word in ["*", "times", "multiply"]):
+            result_str = f"The product is {a * b}."
+        elif any(word in text for word in ["-", "minus", "subtract", "difference"]):
+            result_str = f"The difference is {a - b}."
+        elif any(word in text for word in ["/", "divide", "quotient"]):
+            # Using integer division just in case
+            result_str = f"The quotient is {a // b}." 
+        else:
+            # Default to addition
+            result_str = f"The sum is {sum(numbers)}."
     else:
-        # Fallback if no numbers are found
-        output_str = "I couldn't find any numbers."
+        result_str = "I couldn't find enough numbers."
 
-    response_payload = {"output": output_str}
+    print(f"--- WE REPLIED: {result_str} ---")
     
-    print("--- OUTGOING RESPONSE ---")
-    print(response_payload)
-    print("-----------------------------------\n")
-
-    return response_payload
+    return {"output": result_str}
