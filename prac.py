@@ -7,13 +7,7 @@ app = FastAPI()
 async def solve(request: Request):
     data = await request.json()
 
-    # handle different keys
-    text = (
-        data.get("query") or
-        data.get("question") or
-        data.get("input") or
-        ""
-    ).lower()
+    text = data.get("query", "").lower()
 
     numbers = list(map(int, re.findall(r'-?\d+', text)))
 
